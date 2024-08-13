@@ -1,3 +1,3 @@
-def page_size():
-    PAGE_NUM_SIZE = 8
-    return PAGE_NUM_SIZE
+PAGE_NUM_SIZE = 8
+NODE_HEADER_SIZE = 3
+ 
