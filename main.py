@@ -45,6 +45,16 @@ def main():
         else:
             print("Key not found")
 
+    c.Remove(b"Key2")
+    item, _ = c.find(b"Key2")
+    if err:
+        print(f"Error finding Key1: {err}")
+    else:
+        if item:
+            print(f"Key is: {item.key.decode()}, Value is: {item.value.decode()}")
+        else:
+            print("Key not found")
+
     # Close the DAL
     close_err = dal.close()
     if close_err:

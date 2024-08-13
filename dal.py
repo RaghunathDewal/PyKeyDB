@@ -58,11 +58,10 @@ class DAL:
         return -1
     
     def new_node(self, items: List[Item], child_nodes: List[Pgnum]) -> Node:
-        node = Node.empty_node()
+        node = Node(dal=self)
         node.items = items
         node.child_nodes = child_nodes
         node.page_num = self.get_nxt_page()
-        node.dal = self
         return node
 
     def get_node(self, page_num):
@@ -70,7 +69,7 @@ class DAL:
         if err:
             print(f"Error reading page {page_num}: {err}")
             return None, err
-        node = Node()
+        node = Node(dal=self)
         try:
             node.deserialize(p.data)
         except Exception as e:
@@ -83,11 +82,8 @@ class DAL:
     def write_node(self, node):
         p = self.allocate_empty_page()
         if node.page_num == 0:
-            p.num = self.get_nxt_page()
-            node.page_num = p.num
-            print(f"Assigning new page number {p.num} to node")
-        else:
-            p.num = node.page_num
+            node.page_num = self.get_nxt_page()
+        p.num = node.page_num
 
         p.data = node.serialize(bytearray(self.page_size))
 
@@ -97,7 +93,7 @@ class DAL:
             return None, err
         print(f"Node written: Page Number {node.page_num}")
         return node, None
-    
+        
     def delete_node(self, page_num):
         self.release_page(page_num)
 

@@ -9,17 +9,17 @@ class FreeList:
 
     def serialize(self):
         buf = bytearray()
-        buf.extend(struct.pack('<I', self.max_pg))  # Use 4-byte integer for max_pg
-        buf.extend(struct.pack('<I', len(self.released_pages)))  # 4-byte integer for count
+        buf.extend(struct.pack('<H', self.max_pg))  # Use 2-byte integer for max_pg
+        buf.extend(struct.pack('<H', len(self.released_pages)))  # 2-byte integer for count
         for page in self.released_pages:
             buf.extend(struct.pack('<Q', page))
         return buf
     
     def deserialize(self, buf):
-        self.max_pg, = struct.unpack_from('<I', buf, 0)
-        pos = 4  # Move to next position
-        released_pages_count, = struct.unpack_from('<I', buf, pos)
-        pos += 4
+        self.max_pg, = struct.unpack_from('<H', buf, 0)
+        pos = 2  # Move to next position
+        released_pages_count, = struct.unpack_from('<H', buf, pos)
+        pos += 2
         self.released_pages = []
         for _ in range(released_pages_count):
             page, = struct.unpack_from('<Q', buf, pos)
@@ -29,10 +29,8 @@ class FreeList:
     def get_nxt_page(self):
         if self.released_pages:
             next_page = self.released_pages.pop()
-            print(f"Reusing released page: {next_page}")
             return next_page
         self.max_pg += 1
-        print(f"Allocating new page: {self.max_pg}")
         return self.max_pg
 
     def release_page(self, page):
