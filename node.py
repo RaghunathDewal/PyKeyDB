@@ -1,6 +1,7 @@
 import struct
 from typing import Tuple ,Optional,List
 import const
+from Txn import Tx
 class Item:
     def __init__(self,key = bytes,value= bytes):
         self.key = key
@@ -8,11 +9,13 @@ class Item:
 
 
 class Node:
-    def __init__(self,dal = None, page_num=None):
+    def __init__(self,dal = None, tx: Optional[Tx]= None, page_num=None):
         self.dal=dal
         self.page_num= 0
         self.items=[]
         self.child_nodes= []
+        self.tx = tx
+
 
     
     @staticmethod
@@ -183,7 +186,7 @@ class Node:
             self.write_node(node)
 
     def get_node(self,page_num):
-        return self.dal.get_node(page_num)
+        return self.tx.get_node(page_num)
     
 
     def find_key_in_node(self,key:bytes) -> Tuple[bool, int]:
