@@ -232,7 +232,7 @@ class Node:
     
 
     @staticmethod
-    def empty_node():
+    def empty_node()-> 'Node':
         return Node()
     
     @staticmethod

@@ -1,5 +1,5 @@
 from typing import Optional, Tuple, List, Any
-from dal import DAL, Pgnum
+from dal import  Pgnum
 from node import Node, Item
 from Txn import Tx
 import const
@@ -28,7 +28,7 @@ class Collection:
         left_pos += const.COUNTER_SIZE
         return Item(self.name,bytes(buf))
     
-    def Deserialize(self,item : 'Item')-> None;
+    def Deserialize(self,item : 'Item')-> None:
         self.name = item.key
 
         if len(item.value)!= 0:
@@ -38,9 +38,7 @@ class Collection:
 
             self.counter, = struct.unpack_from('<Q',item.value,left_pos)
             left_pos += const.COUNTER_SIZE
-            
-
-
+    
 
     def put(self, key: bytes, value: bytes) -> Optional[Exception]:
         if not self.tx.write:
