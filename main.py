@@ -1,5 +1,5 @@
 from typing import Optional
-from DataBase.DATABASE import DB, Options  
+from DATABASE import DB, Options  
 
 default_Options = Options(
     page_size=4096,
@@ -8,28 +8,37 @@ default_Options = Options(
 )
 
 def main():
-    db = None
     try:
-        # Open the database
         db = DB.open("Demo7", default_Options)
         
-        # Start a write transaction
+    
         tx = db.write_tx()
         
         collection_name = "Demo7Collection"
         created_collection, _ = tx.Create_Collection(collection_name.encode())
         
-        new_key = b"key0"
-        new_val = b"value0"
-        created_collection.put(new_key, new_val)
+       
+        key_value_pairs = [
+            (b"key0", b"value0"),
+            (b"key1", b"value1"),
+            (b"key2", b"value2"),
+            (b"key3", b"value3"),
+            (b"key4", b"value4")
+        ]
         
+        # Insert each key-value pair into the collection
+        for key, value in key_value_pairs:
+            created_collection.put(key, value)
         
-        item, _ = created_collection.find(new_key)
-        if item is None:
-            print(f"Item with key {new_key.decode()} not found.")
-        else:
-            print(f"key is: {item.key.decode()}, value is: {item.value.decode()}")
+        # Retrieve and print each item
+        for key, _ in key_value_pairs:
+            item, _ = created_collection.find(key)
+            if item is None:
+                print(f"Item with key {key.decode()} not found.")
+            else:
+                print(f"key is: {item.key.decode()}, value is: {item.value.decode()}")
         
+        # Commit the transaction
         tx.Commit()
     finally:
         if db:
