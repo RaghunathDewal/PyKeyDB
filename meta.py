@@ -14,16 +14,18 @@ class Meta:
     def empty_meta():
         return Meta()
 
-    def serialize(self, buf: bytearray) -> None:
+    def serialize(self, buf: bytearray) -> bytearray:
         pos = 0
-        struct.pack_into('<I', buf, pos, const.MAGIC_NUMBER)  # pack uint32 in little-endian
+        struct.pack_into('<I', buf, pos, const.MAGIC_NUMBER)  # Explicitly write the magic number
         pos += const.MAGIC_NUMBER_SIZE
 
-        struct.pack_into('<Q', buf, pos, self.root)  # pack uint64 in little-endian
+        struct.pack_into('<Q', buf, pos, self.root)
         pos += const.PAGE_NUM_SIZE
 
-        struct.pack_into('<Q', buf, pos, self.freelist_page)  # pack uint64 in little-endian
+        struct.pack_into('<Q', buf, pos, self.freelist_page)
         pos += const.PAGE_NUM_SIZE
+
+        return buf 
 
     def deserialize(self, buf: bytes) -> None:
         pos = 0
@@ -31,7 +33,7 @@ class Meta:
         pos += const.MAGIC_NUMBER_SIZE
 
         if magic_number_res != const.MAGIC_NUMBER:
-            raise ValueError("The file is not a RD db file")
+            raise ValueError(f"The file is not a RD db file (invalid magic number: {magic_number_res})")
 
         self.root = struct.unpack_from('<Q', buf, pos)[0]  # unpack uint64 in little-endian
         pos += const.PAGE_NUM_SIZE

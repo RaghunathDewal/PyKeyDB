@@ -1,3 +1,6 @@
+class Pgnum(int):
+    pass
+
 import os
 from FList import FreeList
 from meta import Meta, META_PAGE_NUM
@@ -17,8 +20,6 @@ default_Options = Options(
     max_fill_percent=0.95
 )
 
-class Pgnum(int):
-    pass
 
 class Page:
     def __init__(self, num, data):
@@ -34,6 +35,7 @@ class DAL:
         self.free_list = FreeList()
         self.meta = Meta()
         self.root = self.meta.root
+        self.options = options
 
     def max_threshold(self):
         return self.max_fill_percent * float(self.page_size)
@@ -77,28 +79,39 @@ class DAL:
             return None, e
         node.page_num = page_num
         print(f"Node retrieved: Page Number {node.page_num}")
-        return node, None
+        return node
     
     def write_node(self, node):
-        p = self.allocate_empty_page()
+        node= Node()
         if node.page_num == 0:
+            # Allocate a new page only if the node doesn't already have a page number
             node.page_num = self.get_nxt_page()
-        p.num = node.page_num
-
+            p = self.allocate_empty_page()
+            p.num = node.page_num
+        else:
+            # If node already has a page number, use that page
+            p, err = self.read_page(node.page_num)  # Read existing page to overwrite
+            if err:
+                print(f"Error reading page {node.page_num} before writing: {err}")
+                return None, err
+        
+        # Serialize node data and write it to the page
         p.data = node.serialize(bytearray(self.page_size))
-
+        
         err = self.write_page(p)
         if err:
             print(f"Error writing node to page {p.num}: {err}")
             return None, err
+        
         print(f"Node written: Page Number {node.page_num}")
         return node, None
         
     def delete_node(self, page_num):
         self.release_page(page_num)
 
+
     @staticmethod
-    def new_dal(path: str, options: Options) -> Tuple[Optional['DAL'], Optional[Exception]]:
+    def new_dal(path: str, options: Options) -> Tuple[Optional['DAL'], Optional[Exception]]:    
         try:
             if os.path.exists(path):
                 file = open(path, 'r+b')
@@ -106,9 +119,23 @@ class DAL:
                 
                 meta, err = dal.ReadMeta()
                 if err:
-                    return None, err
-                
-                dal.meta = meta
+                    if isinstance(err, ValueError) and str(err) == "The file is not a RD db file":
+                        # This is likely a new file, so initialize it
+                        dal.meta = Meta()
+                        dal.free_list = FreeList()
+                        dal.meta.freelist_page = dal.get_nxt_page()
+                        
+                        _, err = dal.Write_Freelist()
+                        if err:
+                            return None, err
+                        
+                        _, err = dal.WriteMeta(dal.meta)
+                        if err:
+                            return None, err
+                    else:
+                        return None, err
+                else:
+                    dal.meta = meta
 
                 freelist, err = dal.Read_Freelist()
                 if err:
@@ -121,6 +148,7 @@ class DAL:
                 dal = DAL(file, options)
                 
                 dal.free_list = FreeList()
+                dal.meta = Meta()
                 dal.meta.freelist_page = dal.get_nxt_page()
 
                 _, err = dal.Write_Freelist()
@@ -131,17 +159,17 @@ class DAL:
                 if err:
                     return None, err
 
-                # Initialize the root node
-                root_node = dal.new_node([], [])
-                root_node, err = dal.write_node(root_node)
-                if err:
-                    return None, err
-                
-                dal.root = root_node.page_num
-                dal.meta.root = dal.root  # Update the meta with the root page number
-                _, err = dal.WriteMeta(dal.meta)  # Persist the meta with the new root
-                if err:
-                    return None, err
+            # Initialize the root node
+            root_node = dal.new_node([], [])
+            root_node, err = dal.write_node(root_node)
+            if err:
+                return None, err
+            
+            dal.root = root_node.page_num
+            dal.meta.root = dal.root  # Update the meta with the root page number
+            _, err = dal.WriteMeta(dal.meta)  # Persist the meta with the new root
+            if err:
+                return None, err
 
             return dal, None
         
@@ -190,6 +218,10 @@ class DAL:
         p.num = META_PAGE_NUM
         buf = bytearray(self.page_size)
         p.data = meta.serialize(buf)
+
+        if p.data is None:
+            print("Error: p.data is None after serialization")  # Debug print
+            return None, "Serialization failed"
 
         err = self.write_page(p)
         if err:

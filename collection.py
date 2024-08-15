@@ -1,16 +1,18 @@
-from typing import Optional, Tuple, List, Any
-from dal import  Pgnum
-from node import Node, Item
-from Txn import Tx
+from typing import Optional, Tuple, List, Any,TYPE_CHECKING
+
+from dal import Pgnum
+from node import Node,Item
 import const
 import struct
+if TYPE_CHECKING:
+    from Txn import Tx
 
 class Collection:
-    def __init__(self, name: bytes, root: Pgnum, tx: Optional[Tx] = None,counter : int = 0):
+    def __init__(self, name: bytes, root: 'Pgnum', tx: Optional['Tx'] = None, counter: int = 0):
         self.name: bytes = name
-        self.root: Pgnum = root
+        self.root: 'Pgnum' = root
         self.tx: Optional[Tx] = tx
-        self.counter  = counter
+        self.counter = counter
 
     @classmethod
     def new_collection(cls, name: bytes, root: Pgnum) -> 'Collection':

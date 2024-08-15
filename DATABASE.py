@@ -3,17 +3,19 @@ import threading
 import const
 from dal import DAL,Options
 from FList import FreeList
+from typing import Optional
 class DB():
-    def __init__(self,dal):
+    def __init__(self,dal: Optional['DAL']=None):
         self.rwlock = threading.RLock()
-        self.dal= DAL(self)
-        self.freelist= FreeList(self)
+        self.dal= dal
+        self.freelist= FreeList()
+        self.root= dal.root
 
     @classmethod
-    def open(cls,path,options):
+    def open(cls,path,options:Options):
         options.page_size = const.PAGE_SIZE
-        dal = DAL.new_dal(path,options)
-        if dal is None:
+        dal,err = DAL.new_dal(path,options)
+        if dal is None or err:
             raise Exception("Error initializing DAL")
         return cls(dal)
     

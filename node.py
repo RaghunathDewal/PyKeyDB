@@ -1,19 +1,22 @@
-import struct
-from typing import Tuple ,Optional,List
+from typing import TYPE_CHECKING, Tuple, Optional, List
 import const
-from Txn import Tx
-class Item:
-    def __init__(self,key = bytes,value= bytes):
-        self.key = key
-        self.value= value
+import struct
 
+if TYPE_CHECKING:
+    from Txn import Tx
+    from dal import DAL
+
+class Item:
+    def __init__(self, key: bytes = b'', value: bytes = b''):
+        self.key = key
+        self.value = value
 
 class Node:
-    def __init__(self,dal = None, tx: Optional[Tx]= None, page_num=None):
-        self.dal=dal
-        self.page_num= 0
-        self.items=[]
-        self.child_nodes= []
+    def __init__(self, dal: Optional['DAL'] = None, tx: Optional['Tx'] = None, page_num: Optional[int] = None):
+        self.dal = dal
+        self.page_num = page_num or 0
+        self.items: List[Item] = []
+        self.child_nodes: List[int] = []
         self.tx = tx
 
 
