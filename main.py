@@ -1,38 +1,49 @@
-from dal import DAL
-from node import Node
+from typing import Optional
+from DATABASE import DB, Options  
+
+default_Options = Options(
+    page_size=4096,
+    min_fill_percent=0.5,
+    max_fill_percent=0.95
+)
 
 def main():
-    # Initialize db
-    dal, err = DAL.new_dal("./mainTest", page_size=4096)
-    if err:
-        print(f"Error initializing DAL: {err}")
-        return
-
-    if dal.root is None:
-        print("Database is empty. Please insert some data first.")
-        dal.close()
-        return
-
-    node, err = dal.get_node(dal.root)
-    if err:
-        print(f"Error getting root node: {err}")
-        dal.close()
-        return
-
-    index, containing_node, err = node.find_key(b"Key1")
-    if err:
-        print(f"Error finding key: {err}")
-        dal.close()
-        return
-
-    if containing_node is None:
-        print("Key not found")
-    else:
-        res = containing_node.items[index]
-        print(f"key is: {res.key.decode()}, value is: {res.value.decode()}")
+    try:
+        db = DB.open("Demo7", default_Options)
+        
     
-    # Close the db
-    dal.close()
+        tx = db.write_tx()
+        
+        collection_name = "Demo7Collection"
+        created_collection, _ = tx.Create_Collection(collection_name.encode())
+        
+       
+        key_value_pairs = [
+            (b"key0", b"value0"),
+            (b"key1", b"value1"),
+            (b"key2", b"value2"),
+            (b"key3", b"value3"),
+            (b"key4", b"value4")
+        ]
+        
+        # Insert each key-value pair into the collection
+        for key, value in key_value_pairs:
+            created_collection.put(key, value)
+        
+        # Retrieve and print each item
+        for key, _ in key_value_pairs:
+            item, _ = created_collection.find(key)
+            if item is None:
+                print(f"Item with key {key.decode()} not found.")
+            else:
+                print(f"key is: {item.key.decode()}, value is: {item.value.decode()}")
+        
+        # Commit the transaction
+        tx.Commit()
+    finally:
+        if db:
+            db.close()
 
 if __name__ == "__main__":
     main()
+
