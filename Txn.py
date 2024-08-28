@@ -4,7 +4,7 @@ import const
 if TYPE_CHECKING:
     from collection import Collection
     from node import Node, Item
-    from DataBase.DATABASE import DB
+    from DATABASE import DB
 
 class Tx:
     def __init__(self, db: 'DB', write: bool):
@@ -30,10 +30,16 @@ class Tx:
 
     def get_node(self, page_num: int) -> 'Node':
         if page_num in self.dirty_node:
-            return self.dirty_node[page_num]
+            node = self.dirty_node[page_num]
+            node.tx = self
+            return node
 
-        node = self.db.dal.get_node(page_num)
+        node,err = self.db.dal.get_node(page_num)
+        if err:
+            print(f"{err}")
         node.tx = self
+        if self.write:
+            self.dirty_node[page_num] = node
         return node
 
     def write_node(self, node: 'Node') -> 'Node':
@@ -47,18 +53,22 @@ class Tx:
     def getRootCollection(self) -> 'Collection':
         from collection import Collection
         root_Collection = Collection.new_empty_collection()
-        root_Collection.root = self.db.root
+        root_Collection.root = self.db.dal.meta.root
         root_Collection.tx = self
         return root_Collection
 
     def Get_Collection(self, name: bytes) -> Tuple[Optional['Collection'], Optional[Exception]]:
         from collection import Collection
         root_collection = self.getRootCollection()
+        print(f"Getting collection: {name}")
+        
         item, err = root_collection.find(name)
         if err:
+            print(f"Error finding collection: {err}")
             return None, err
 
         if item is None:
+            print(f"Collection not found: {name}")
             return None, None
 
         collection = Collection.new_empty_collection()
@@ -67,18 +77,18 @@ class Tx:
         return collection, None
 
     def Create_Collection(self, name: bytes) -> Tuple[Optional['Collection'], Optional[Exception]]:
-        from collection import Collection  # Ensure Collection is correctly imported here
+        from collection import Collection  
         if not self.write:
             return None, const.writeInsideReadTxErr
 
-        new_collection_page, err = self.db.dal.write_node(self.new_node([], []))
+        new_collection_node = self.new_node([], [])
+        new_collection = Collection.new_collection(name, new_collection_node.page_num)
+        new_collection.tx = self
+        
+        collection, err = self._create_collection(new_collection)
         if err:
             return None, err
-
-        new_collection = Collection.new_empty_collection()
-        new_collection.name = name
-        new_collection.root = new_collection_page.page_num
-        return self._create_collection(new_collection)
+        return collection, None
 
     def Delete_collection(self, name: bytes):
         if not self.write:
@@ -89,13 +99,17 @@ class Tx:
 
     def _create_collection(self, collection: 'Collection') -> Tuple[Optional['Collection'], Optional[Exception]]:
         collection.tx = self
-        collection_bytes = collection.Serialize()
+        collection_item = collection.Serialize()
 
         root_collection = self.getRootCollection()
-        err = root_collection.put(collection.name, collection_bytes.value)
+        print(f"Adding collection {collection.name} to root")
+        
+        err = root_collection.put(collection.name, collection_item.value)
         if err:
+            print(f"Error putting collection in root: {err}")
             return None, err
 
+        print(f"Collection added to root: {collection.name}")
         return collection, None
 
     def Rollback(self):
@@ -103,13 +117,13 @@ class Tx:
             self.db.rwlock.release()
             return
 
-        self.dirty_node = None
-        self.pages_to_delete = None
+        self.dirty_node = {}
+        self.pages_to_delete = []
 
         for page_num in self.allocated_pages:
-            self.db.freelist.release_page(page_num)
+            self.db.dal.free_list.release_page(page_num)
 
-        self.allocated_pages = None
+        self.allocated_pages = []
         self.db.rwlock.release()
 
     def Commit(self):
@@ -124,7 +138,7 @@ class Tx:
             for page_num in self.pages_to_delete:
                 self.db.dal.delete_node(page_num)
 
-            self.db.dal.Write_Freelist(self.db.freelist)
+            self.db.dal.Write_Freelist()
 
             self.dirty_node = {}
             self.pages_to_delete = []

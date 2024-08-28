@@ -1,9 +1,6 @@
-class Pgnum(int):
-    pass
-
 import os
 from FList import FreeList
-from meta import Meta, META_PAGE_NUM
+from meta import Meta
 from node import Node, Item
 import const
 from typing import List, Tuple, Optional
@@ -20,9 +17,10 @@ default_Options = Options(
     max_fill_percent=0.95
 )
 
-
+class Pgnum(int):
+    pass
 class Page:
-    def __init__(self, num, data):
+    def __init__(self, num, data:bytes):
         self.num = Pgnum(num)
         self.data = data
 
@@ -36,20 +34,21 @@ class DAL:
         self.meta = Meta()
         self.root = self.meta.root
         self.options = options
+        
 
     def max_threshold(self):
         return self.max_fill_percent * float(self.page_size)
     
-    def is_over_populated(self, node):
+    def is_over_populated(self, node:'Node'):
         return float(node.node_size()) > self.max_threshold()
     
     def min_threshold(self):
         return self.min_fill_percent * float(self.page_size)
     
-    def is_under_populated(self, node):
+    def is_under_populated(self, node:'Node'):
         return float(node.node_size()) < self.min_threshold
     
-    def get_split_index(self, node):
+    def get_split_index(self, node:'Node'):
         size = 0 
         size += const.NODE_HEADER_SIZE
         for i, item in enumerate(node.items):
@@ -78,32 +77,24 @@ class DAL:
             print(f"Error deserializing node: {e}")
             return None, e
         node.page_num = page_num
-        print(f"Node retrieved: Page Number {node.page_num}")
-        return node
+        return node,err
     
-    def write_node(self, node):
-        node= Node()
+    def write_node(self, node:'Node'):
         if node.page_num == 0:
-            # Allocate a new page only if the node doesn't already have a page number
             node.page_num = self.get_nxt_page()
             p = self.allocate_empty_page()
             p.num = node.page_num
         else:
-            # If node already has a page number, use that page
-            p, err = self.read_page(node.page_num)  # Read existing page to overwrite
+            
+            p, err = self.read_page(node.page_num) 
             if err:
                 print(f"Error reading page {node.page_num} before writing: {err}")
                 return None, err
-        
-        # Serialize node data and write it to the page
         p.data = node.serialize(bytearray(self.page_size))
-        
         err = self.write_page(p)
         if err:
             print(f"Error writing node to page {p.num}: {err}")
             return None, err
-        
-        print(f"Node written: Page Number {node.page_num}")
         return node, None
         
     def delete_node(self, page_num):
@@ -111,32 +102,15 @@ class DAL:
 
 
     @staticmethod
-    def new_dal(path: str, options: Options) -> Tuple[Optional['DAL'], Optional[Exception]]:    
+    def new_dal(path: str, options: Options) -> Tuple[Optional['DAL'], Optional[Exception]]:
         try:
             if os.path.exists(path):
                 file = open(path, 'r+b')
                 dal = DAL(file, options)
-                
                 meta, err = dal.ReadMeta()
+                dal.meta = meta
                 if err:
-                    if isinstance(err, ValueError) and str(err) == "The file is not a RD db file":
-                        # This is likely a new file, so initialize it
-                        dal.meta = Meta()
-                        dal.free_list = FreeList()
-                        dal.meta.freelist_page = dal.get_nxt_page()
-                        
-                        _, err = dal.Write_Freelist()
-                        if err:
-                            return None, err
-                        
-                        _, err = dal.WriteMeta(dal.meta)
-                        if err:
-                            return None, err
-                    else:
-                        return None, err
-                else:
-                    dal.meta = meta
-
+                    return None, err
                 freelist, err = dal.Read_Freelist()
                 if err:
                     return None, err
@@ -144,40 +118,36 @@ class DAL:
                 dal.free_list = freelist
 
             else:
+                # If File does not exist create  it
                 file = open(path, 'w+b')
                 dal = DAL(file, options)
                 
                 dal.free_list = FreeList()
-                dal.meta = Meta()
+
                 dal.meta.freelist_page = dal.get_nxt_page()
 
                 _, err = dal.Write_Freelist()
                 if err:
                     return None, err
+
+                root_node = Node.new_node_for_serialization([], []) 
+                root_node, err = dal.write_node(root_node)
+                if err:
+                    return None, err
                 
-                _, err = dal.WriteMeta(dal.meta)
+                dal.root = root_node.page_num
+                
+                dal.meta.root = dal.root 
+                _, err = dal.WriteMeta(dal.meta) 
                 if err:
                     return None, err
 
-            # Initialize the root node
-            root_node = dal.new_node([], [])
-            root_node, err = dal.write_node(root_node)
-            if err:
-                return None, err
-            
-            dal.root = root_node.page_num
-            dal.meta.root = dal.root  # Update the meta with the root page number
-            _, err = dal.WriteMeta(dal.meta)  # Persist the meta with the new root
-            if err:
-                return None, err
-
             return dal, None
-        
+
         except IOError as e:
             return None, e
     
     def allocate_empty_page(self):
-        print(f"Allocating new page: {self.free_list.get_nxt_page()}")
         return Page(0, bytearray(self.page_size))
     
     def read_page(self, page_num):
@@ -188,7 +158,6 @@ class DAL:
 
         self.file.seek(offset)
         p.data = self.file.read(self.page_size)
-
         if len(p.data) != self.page_size:
             return None, IOError("Could Not read full page")
         return p, None
@@ -214,27 +183,40 @@ class DAL:
         self.free_list.release_page(page_num)
 
     def WriteMeta(self, meta):
+        print("Writing Meta Data...")
+    
         p = self.allocate_empty_page()
-        p.num = META_PAGE_NUM
-        buf = bytearray(self.page_size)
-        p.data = meta.serialize(buf)
+        p.num = const.META_PAGE_NUM
 
-        if p.data is None:
-            print("Error: p.data is None after serialization")  # Debug print
+        buf = bytearray(self.page_size)
+
+
+        p.data = meta.serialize(buf)
+        
+        if not p.data:
+            print("Error: Meta serialization resulted in None or empty data")
             return None, "Serialization failed"
+
 
         err = self.write_page(p)
         if err:
+            print(f"Error writing meta to page {p.num}")
             return None, err
+
+        print(f"Metadata successfully written to page {p.num}")
         return p, None
     
+    
+    
     def ReadMeta(self):
-        p, err = self.read_page(META_PAGE_NUM)
+        p, err = self.read_page(const.META_PAGE_NUM)
         if err:
             return None, err
         
         meta = Meta.empty_meta()
         meta.deserialize(p.data)
+
+      
         return meta, None
     
     def Write_Freelist(self):
