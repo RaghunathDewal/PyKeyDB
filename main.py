@@ -8,6 +8,7 @@ default_Options = Options(
 )
 
 def main():
+    db=None
     try:
         db = DB.open("Demo7", default_Options)
         
