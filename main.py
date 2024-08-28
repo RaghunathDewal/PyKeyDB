@@ -1,5 +1,4 @@
-from typing import Optional
-from DATABASE import DB, Options  
+from DATABASE import DB, Options
 
 default_Options = Options(
     page_size=4096,
@@ -8,17 +7,24 @@ default_Options = Options(
 )
 
 def main():
-    db=None
+    db = None
     try:
-        db = DB.open("Demo7", default_Options)
-        
-    
-        tx = db.write_tx()
-        
-        collection_name = "Demo7Collection"
-        created_collection, _ = tx.Create_Collection(collection_name.encode())
-        
+        print("Opening database...")
+        db = DB.open("Demo8", default_Options)
+        print(f"Root page number after database open: {db.root}")
+
+        print("Starting write transaction...")
+        write_tx = db.write_tx()
+
+        collection_name = b"Demo7Collection"
+
+        print(f"Creating collection: {collection_name}")
+        created_collection, err = write_tx.Create_Collection(collection_name)
        
+
+        print(f"Created collection: name={created_collection.name}, root={created_collection.root}")
+
+
         key_value_pairs = [
             (b"key0", b"value0"),
             (b"key1", b"value1"),
@@ -26,25 +32,29 @@ def main():
             (b"key3", b"value3"),
             (b"key4", b"value4")
         ]
-        
-        # Insert each key-value pair into the collection
+
+        print("Inserting key-value pairs...")
         for key, value in key_value_pairs:
-            created_collection.put(key, value)
-        
-        # Retrieve and print each item
-        for key, _ in key_value_pairs:
-            item, _ = created_collection.find(key)
-            if item is None:
-                print(f"Item with key {key.decode()} not found.")
+            err = created_collection.put(key, value)
+            if err:
+                print(f"Error putting key {key.decode()}: {err}")
             else:
-                print(f"key is: {item.key.decode()}, value is: {item.value.decode()}")
+                print(f"Successfully put key: {key.decode()}")
+
         
-        # Commit the transaction
-        tx.Commit()
+        err = write_tx.Commit()
+        if err:
+            print(f"Error committing write transaction: {err}")
+            return
+        print("Write transaction committed successfully")
+
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
     finally:
         if db:
+            print("Closing database...")
             db.close()
+            return db
 
-if __name__ == "__main__":
+if __name__ ==  "__main__":
     main()
-

@@ -77,7 +77,6 @@ class DAL:
             print(f"Error deserializing node: {e}")
             return None, e
         node.page_num = page_num
-        print(f"Node retrieved: Page Number {node.page_num}")
         return node,err
     
     def write_node(self, node:'Node'):
@@ -96,8 +95,6 @@ class DAL:
         if err:
             print(f"Error writing node to page {p.num}: {err}")
             return None, err
-        
-        print(f"Node written: Page Number {node.page_num}")
         return node, None
         
     def delete_node(self, page_num):
@@ -151,7 +148,6 @@ class DAL:
             return None, e
     
     def allocate_empty_page(self):
-        print(f"Allocating new page: {self.free_list.get_nxt_page()}")
         return Page(0, bytearray(self.page_size))
     
     def read_page(self, page_num):

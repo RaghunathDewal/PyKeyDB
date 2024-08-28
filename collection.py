@@ -87,16 +87,13 @@ class Collection:
             new_root = self.tx.new_node([], [root_node.page_num])
             new_root.split_node(root_node, 0)
             new_root = self.tx.write_node(new_root)
-            self.root = new_root.page_num
-
-        print(f"Node state after inserting key {key}: {root_node}")
+            self.root = new_root
 
         return None
 
     def find(self, key: bytes) -> Tuple[Optional[Item], Optional[Exception]]:
         try:
             root_node = self.tx.get_node(self.root)
-            print(f"Finding key {key} in collection with root {self.root}")
             
             index, containing_node, _, err = root_node.find_key(key, True)
             if err:
