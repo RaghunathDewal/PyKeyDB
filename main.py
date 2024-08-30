@@ -10,13 +10,13 @@ def main():
     db = None
     try:
         print("Opening database...")
-        db = DB.open("Demo8", default_Options)
+        db = DB.open("Trial", default_Options)
         print(f"Root page number after database open: {db.root}")
 
         print("Starting write transaction...")
         write_tx = db.write_tx()
 
-        collection_name = b"Demo7Collection"
+        collection_name = b"First_Collection"
 
         print(f"Creating collection: {collection_name}")
         created_collection, err = write_tx.Create_Collection(collection_name)
