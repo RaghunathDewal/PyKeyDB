@@ -14,7 +14,7 @@ def main():
         
     
         read = db.read_tx()
-        collection_name = b"Demo7Collection"
+        collection_name = b"First_Collection"
         read_collection, err = read.Get_Collection(collection_name)
         if err or read_collection is None:
             print(f"Error reading back collection: {err}")
