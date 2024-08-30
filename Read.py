@@ -10,7 +10,7 @@ default_Options = Options(
 def main():
     db=None
     try:
-        db = DB.open("Demo8", default_Options)
+        db = DB.open("Trial", default_Options)
         
     
         read = db.read_tx()
